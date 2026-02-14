@@ -22,7 +22,7 @@ def download_audio():
 
     ydl_opts = {
     'format': 'bestaudio/best',
-    'extractor_args': 'youtube:player_client=mweb',   # ← ADICIONE
+    'extractor_args': {'youtube': {'player_client': ['mweb']}},
     'outtmpl': os.path.join(DOWNLOAD_DIR, f"{file_id}.%(ext)s"),
     'noplaylist': True,
     'cookiefile': '/app/cookies.txt',
