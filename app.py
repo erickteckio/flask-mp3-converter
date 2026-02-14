@@ -21,16 +21,15 @@ def download_audio():
     output_path = os.path.join(DOWNLOAD_DIR, f"{file_id}.mp3")
 
     ydl_opts = {
-        'format': 'bestaudio[ext=m4a]/bestaudio/best',
-        'outtmpl': os.path.join(DOWNLOAD_DIR, f"{file_id}.%(ext)s"),
-        'noplaylist': True,
-        'cookiefile': '/app/cookies.txt',
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '128',
-        }],
-        'quiet': True,
+    'outtmpl': os.path.join(DOWNLOAD_DIR, f"{file_id}.%(ext)s"),
+    'noplaylist': True,
+    'cookiefile': '/app/cookies.txt',
+    'postprocessors': [{
+        'key': 'FFmpegExtractAudio',
+        'preferredcodec': 'mp3',
+        'preferredquality': '128',
+    }],
+    'quiet': True,
     }
 
     try:
