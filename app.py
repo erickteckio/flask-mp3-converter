@@ -21,7 +21,8 @@ def download_audio():
     output_path = os.path.join(DOWNLOAD_DIR, f"{file_id}.mp3")
 
     ydl_opts = {
-    'format': 'bestaudio/best',       # ← ADICIONE ESTA LINHA
+    'format': 'bestaudio/best',
+    'extractor_args': 'youtube:player_client=mweb',   # ← ADICIONE
     'outtmpl': os.path.join(DOWNLOAD_DIR, f"{file_id}.%(ext)s"),
     'noplaylist': True,
     'cookiefile': '/app/cookies.txt',
@@ -30,7 +31,7 @@ def download_audio():
         'preferredcodec': 'mp3',
         'preferredquality': '128',
     }],
-    'quiet': True,
+    'quiet': False,   # ← temporariamente, para ver logs
     }
 
     try:
