@@ -18,50 +18,44 @@ def download_audio():
         return jsonify({'error': 'Missing URL'}), 400
 
     file_id = str(uuid.uuid4())
-    # IMPORTANTE: Se você quer MP3, mude aqui e no postprocessor
-    output_filename = f"{file_id}.mp3"
-    output_path = os.path.join(DOWNLOAD_DIR, output_filename)
+    # Vamos forçar o nome final do arquivo aqui
+    final_filename = f"{file_id}.mp3"
+    final_path = os.path.join(DOWNLOAD_DIR, final_filename)
 
     ydl_opts = {
-        # 'bestaudio' é mais seguro que especificar 'm4a' de cara
+        # 'bestaudio' busca a melhor qualidade sem frescura de formato inicial
         'format': 'bestaudio/best',
-        'extractor_args': {'youtube': {'player_client': ['tv']}},
-        # O outtmpl deve ser genérico pois o postprocessor mudará a extensão
-        'outtmpl': os.path.join(DOWNLOAD_DIR, f"{file_id}.%(ext)s"),
+        # 'outtmpl' sem a extensão no final para o postprocessor gerenciar
+        'outtmpl': os.path.join(DOWNLOAD_DIR, file_id), 
         'noplaylist': True,
-        'cookiefile': '/app/cookies.txt', # Certifique-se que este arquivo existe no Fly.io
+        # Argumentos vitais para evitar bloqueios de bot/formato
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'web'],
+                'skip': ['hls', 'dash']
+            }
+        },
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3', # Mudado para mp3 para coincidir com o output_path
+            'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
-        'quiet': False,
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([video_url])
 
-        if not os.path.exists(output_path):
-            # Log extra para debug se falhar
-            files_in_dir = os.listdir(DOWNLOAD_DIR)
-            return jsonify({'error': f'File not found. Found: {files_in_dir}'}), 500
+        # Verifica se o arquivo .mp3 realmente existe
+        if not os.path.exists(final_path):
+            # Se falhou, vamos ver o que o yt-dlp realmente criou no log
+            files = os.listdir(DOWNLOAD_DIR)
+            return jsonify({'error': 'File not found', 'debug_files': files}), 500
 
-        return send_file(
-            output_path, 
-            mimetype='audio/mpeg',
-            as_attachment=True,
-            download_name="audio.mp3"
-        )
-
-        # O cleanup será executado após o envio
-        @response.call_on_close
-        def cleanup():
-            if os.path.exists(output_path):
-                os.remove(output_path)
+        return send_file(final_path, mimetype='audio/mpeg', as_attachment=True, download_name="audio.mp3")
 
     except Exception as e:
-        app.logger.error(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
+        
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
