@@ -18,19 +18,24 @@ def download_audio():
         return jsonify({'error': 'Missing URL'}), 400
 
     file_id = str(uuid.uuid4())
-    output_path = os.path.join(DOWNLOAD_DIR, f"{file_id}.mp3")
+    # IMPORTANTE: Se você quer MP3, mude aqui e no postprocessor
+    output_filename = f"{file_id}.mp3"
+    output_path = os.path.join(DOWNLOAD_DIR, output_filename)
 
     ydl_opts = {
-    'format': 'm4a/bestaudio/best',
-    'extractor_args': {'youtube': {'player_client': ['mweb']}},
-    'outtmpl': os.path.join(DOWNLOAD_DIR, f"{file_id}.%(ext)s"),
-    'noplaylist': True,
-    'cookiefile': '/app/cookies.txt',
-    'postprocessors': [{
-        'key': 'FFmpegExtractAudio',
-        'preferredcodec': 'm4a',
-    }],
-    'quiet': False,   # ← temporariamente, para ver logs
+        # 'bestaudio' é mais seguro que especificar 'm4a' de cara
+        'format': 'bestaudio/best',
+        'extractor_args': {'youtube': {'player_client': ['mweb']}},
+        # O outtmpl deve ser genérico pois o postprocessor mudará a extensão
+        'outtmpl': os.path.join(DOWNLOAD_DIR, f"{file_id}.%(ext)s"),
+        'noplaylist': True,
+        'cookiefile': '/app/cookies.txt', # Certifique-se que este arquivo existe no Fly.io
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3', # Mudado para mp3 para coincidir com o output_path
+            'preferredquality': '192',
+        }],
+        'quiet': False,
     }
 
     try:
@@ -38,21 +43,25 @@ def download_audio():
             ydl.download([video_url])
 
         if not os.path.exists(output_path):
-            return jsonify({'error': 'Conversion failed'}), 500
+            # Log extra para debug se falhar
+            files_in_dir = os.listdir(DOWNLOAD_DIR)
+            return jsonify({'error': f'File not found. Found: {files_in_dir}'}), 500
 
-        response = send_file(output_path, mimetype='audio/mpeg')
+        return send_file(
+            output_path, 
+            mimetype='audio/mpeg',
+            as_attachment=True,
+            download_name="audio.mp3"
+        )
 
+        # O cleanup será executado após o envio
         @response.call_on_close
         def cleanup():
-            try:
+            if os.path.exists(output_path):
                 os.remove(output_path)
-            except:
-                pass
 
-        return response
     except Exception as e:
         app.logger.error(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
-
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
