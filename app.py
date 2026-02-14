@@ -1,43 +1,57 @@
-from flask import Flask, jsonify, request
-import yt_dlp  # yt-dlp é a biblioteca para baixar o áudio do YouTube
-import subprocess  # Para chamar o FFmpeg diretamente
+from flask import Flask, jsonify, request, send_file
+import yt_dlp
+import os
+import uuid
 
 app = Flask(__name__)
+DOWNLOAD_DIR = "/tmp/downloads"
+os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+
+@app.route('/', methods=['GET'])
+def health():
+    return jsonify({'status': 'ok'})
 
 @app.route('/download', methods=['GET'])
 def download_audio():
-    video_url = request.args.get('url')  # URL do vídeo do YouTube
+    video_url = request.args.get('url')
     if not video_url:
         return jsonify({'error': 'Missing URL'}), 400
 
-    # Configuração para download de áudio
+    file_id = str(uuid.uuid4())
+    output_path = os.path.join(DOWNLOAD_DIR, f"{file_id}.mp3")
+
     ydl_opts = {
-        'format': 'bestaudio/best',  # Extrai o melhor áudio disponível
-        'outtmpl': 'downloads/%(id)s.%(ext)s',  # Salvar o arquivo na pasta downloads
-        'noplaylist': True,  # Não tentar baixar playlists
-        'quiet': False,  # Para mostrar mais detalhes no terminal
+        'format': 'bestaudio/best',
+        'outtmpl': os.path.join(DOWNLOAD_DIR, f"{file_id}.%(ext)s"),
+        'noplaylist': True,
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '128',
+        }],
+        'quiet': True,
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info_dict = ydl.extract_info(video_url, download=True)
-            # Caminho para o arquivo WebM baixado
-            audio_file_webm = f"downloads/{info_dict['id']}.webm"
-            audio_file_mp3 = f"downloads/{info_dict['id']}.mp3"  # Caminho para o arquivo MP3
+            ydl.download([video_url])
 
-            # Convertendo WebM para MP3 com FFmpeg
-            # Substitua 'C:\\ffmpeg\\bin\\ffmpeg.exe' pelo caminho correto do FFmpeg no seu sistema
-            subprocess.run(['C:\\ffmpeg\\bin\\ffmpeg.exe', '-i', audio_file_webm, audio_file_mp3])
+        if not os.path.exists(output_path):
+            return jsonify({'error': 'Conversion failed'}), 500
 
+        response = send_file(output_path, mimetype='audio/mpeg')
 
-            # Após a conversão, podemos deletar o arquivo WebM (opcional)
-            subprocess.run(['rm', audio_file_webm])  # No Windows, use 'del' ao invés de 'rm'
+        @response.call_on_close
+        def cleanup():
+            try:
+                os.remove(output_path)
+            except:
+                pass
 
-            return jsonify({'audio_file': audio_file_mp3}), 200
+        return response
     except Exception as e:
-        # Aqui estamos logando o erro completo para depuração
-        app.logger.error(f"Erro ao baixar o áudio: {str(e)}")
-        return jsonify({'error': 'Failed to download audio', 'message': str(e)}), 500
+        app.logger.error(f"Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=8080)
