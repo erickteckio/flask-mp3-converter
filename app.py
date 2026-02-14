@@ -24,6 +24,7 @@ def download_audio():
         'format': 'bestaudio/best',
         'outtmpl': os.path.join(DOWNLOAD_DIR, f"{file_id}.%(ext)s"),
         'noplaylist': True,
+        'cookiefile': '/app/cookies.txt',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
