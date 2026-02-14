@@ -25,7 +25,7 @@ def download_audio():
     ydl_opts = {
         # 'bestaudio' é mais seguro que especificar 'm4a' de cara
         'format': 'bestaudio/best',
-        'extractor_args': {'youtube': {'player_client': ['mweb']}},
+        'extractor_args': {'youtube': {'player_client': ['tv']}},
         # O outtmpl deve ser genérico pois o postprocessor mudará a extensão
         'outtmpl': os.path.join(DOWNLOAD_DIR, f"{file_id}.%(ext)s"),
         'noplaylist': True,
